@@ -6,6 +6,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Config\SiteConstants;
 use App\Config\UserType;
 use App\Http\Middleware\SocializeAuthMiddleware;
 use App\Services\AADGraphService;
@@ -35,6 +36,7 @@ class LinkController extends Controller
         $localUserEmail = '';
         $o365UserEmailInDB = '';
         $user = Auth::user();
+
         if (!$user) {
             return redirect('/login');
         }
@@ -48,8 +50,8 @@ class LinkController extends Controller
                     $localUserEmail = $user->email;
                 }
 
-                $roles = (new AADGraphService)->GetCurrentUserRoles($o365userId, (new TokenCacheService)->GetMSGraphToken($o365userId));
-                (new UserRolesService)->CreateOrUpdateUserRoles($roles, $o365userId);
+                $roles = (new AADGraphService)->getCurrentUserRoles($o365userId, (new TokenCacheService)->getMSGraphToken($o365userId));
+                (new UserRolesService)->createOrUpdateUserRoles($roles, $o365userId);
             }
         } else {
             $user = Auth::user();
@@ -59,8 +61,10 @@ class LinkController extends Controller
             if (!$o365UserEmailInDB || !$o365UserIdInDB || $o365UserEmailInDB === '' || $o365UserIdInDB === '') {
                 //Local user login but not linked. Should show link to existing o365 account link and then login to o365.
                 $showLinkToExistingO365Account = true;
+                $_SESSION[SiteConstants::ShowLoginPrompt]=true;
             } else {
                 $areAccountsLinked = true;
+                $_SESSION[SiteConstants::ShowLoginPrompt] = null;
             }
         }
 
@@ -118,8 +122,10 @@ class LinkController extends Controller
             ];
             if (Auth::attempt($credentials)) {
                 $user = Auth::user();
+
+                $userInfo = $_SESSION[SiteConstants::SocializeUser];
                 $this->userServices->saveCurrentLoginUserInfo($localUser->o365UserId, $o365email, $localUser->firstName,
-                    $localUser->lastName, $localUser->o365UserId);
+                    $localUser->lastName, $userInfo['organizationId']);
                 Auth::loginUsingId($user->id);
                 SocializeAuthMiddleware::removeSocializeSessions();
                 if (Auth::check()) {
@@ -132,7 +138,7 @@ class LinkController extends Controller
         } else {
             $user = $this->userServices->getUserByEmail($o365email);
             if ($user) {
-                $orgId = (new OrganizationsService())->GetOrganizationId($localUser->tenantId);
+                $orgId = (new OrganizationsService())->getOrganizationId($localUser->tenantId);
                 $this->userServices->saveUserInfoByEmail($localUser->o365UserId, $o365email, $localUser->firstName,
                     $localUser->lastName, $orgId);
                 Auth::loginUsingId($user->id);
