@@ -55,25 +55,6 @@ The sample is implemented with the PHP language and the [Laravel](https://larave
   - [Git](https://git-scm.com/download/win)
   - Familiarity with PHP and [Laravel](https://laravel.com/).
 
-**Optional configuration**:
-
-A feature in this sample demonstrates calling the Bing Maps API which requires a key to enable the Bing Maps feature. 
-
-Create a key to enable Bing Maps API features in the app:
-
-1. Open [https://www.bingmapsportal.com/](https://www.bingmapsportal.com/) in your web browser and sign in.
-
-2. Click  **My account** -> **My keys**.
-
-3. Create a **Basic** key, select **Public website** as the application type.
-
-4. Copy the **Key** and save it. 
-
-   ![](Images/bing-maps-key.png)
-
-   > **Note:** The key is used in the app configuration steps for debug and deploy.
-
-
 ## Register the application in Azure Active Directory
 
 1. Sign into the new Azure portal: [https://portal.azure.com/](https://portal.azure.com/).
@@ -114,7 +95,7 @@ Create a key to enable Bing Maps API features in the app:
 
      | API                            | Application Permissions | Delegated Permissions                    |
      | ------------------------------ | ----------------------- | ---------------------------------------- |
-     | Microsoft Graph                |                         | Read all users' full profiles<br>Read all groups<br>Read directory data<br>Access directory as the signed in user<br>Sign users in |
+     | Microsoft Graph                | Read directory data     | Read all users' full profiles<br>Read directory data<br>Read directory data<br>Access directory as the signed in user<br>Sign users in |
      | Windows Azure Active Directory |                         | Sign in and read user profile<br>Read and write directory data |
 
      ![](/Images/aad-create-app-06.png)
@@ -148,7 +129,6 @@ Follow the steps below to run this sample on a windows server:
    - **APP_KEY:** use "php artisan key:generate" command to generate a new key.
    - **CLIENT_ID**: use the Client Id of the app registration you created earlier.
    - **CLIENT_SECRET**: use the Key value of the app registration you created earlier.
-   - **BINGMAPKEY**: use the key of Bing Map you got earlier. This setting is optional.
    - **SOURCECODEREPOSITORYRL**: use the URL of this repository.
 
 6. Edit **httpd-vhosts.conf** under **C:\xampp\apache\conf\extra**. Add below content in green square and make the path in read square match to the path in step 3.
@@ -223,8 +203,6 @@ Follow the steps below to run this sample on a windows server:
    - **Client Id**: use the Client Id of the app registration you created earlier.
 
    - **Client Secret**: use the Key value of the app registration you created earlier.
-
-   - **Bing Map Key**: use the key of Bing Map you got earlier. This setting is optional. It will hide Bing map icon on schools page if this field is empty.
 
    - Check **I agree to the terms and conditions stated above**.
 
@@ -353,14 +331,14 @@ In this sample, the `App\Services\EducationService` class encapsulates the Offic
 ~~~typescript
 public function getSchools()
 {
-    return $this->getAllPages("get", "/administrativeUnits?api-version=beta", School::class);
+   return $this->getAllPages( "administrativeUnits", School::class);
 }
 ~~~
 
 ~~~typescript
 public function getSchool($objectId)
 {
-    return $this->getResponse("get", "/administrativeUnits/" . $objectId . "?api-version=beta", School::class, null, null);
+    return $this->getResponse( "administrativeUnits/" . $objectId , School::class, null, null);
 }
 ~~~
 
@@ -369,14 +347,15 @@ public function getSchool($objectId)
 ~~~typescript
 public function getSections($schoolId, $top, $skipToken)
 {
-    return $this->getResponse("get", '/groups?api-version=beta&$filter=extension_fe2174665583431c953114ff7268b7b3_Education_ObjectType%20eq%20\'Section\'%20and%20extension_fe2174665583431c953114ff7268b7b3_Education_SyncSource_SchoolId%20eq%20\'' . $schoolId . '\'', Section::class, $top, $skipToken);
+           return $this->getResponse( 'groups?$filter=extension_fe2174665583431c953114ff7268b7b3_Education_ObjectType%20eq%20\'Section\'%20and%20extension_fe2174665583431c953114ff7268b7b3_Education_SyncSource_SchoolId%20eq%20\'' . $schoolId . '\'', Section::class, $top, $skipToken);
+
 }
 ~~~
 
 ```typescript
 public function getSectionWithMembers($objectId)
 {
-    return $this->getResponse("get", '/groups/' . $objectId . '?api-version=beta&$expand=members', Section::class, null, null);
+    return $this->getResponse( 'groups/' . $objectId . '?$expand=members', Section::class, null, null);
 }
 ```
 **Get users**
@@ -384,7 +363,7 @@ public function getSectionWithMembers($objectId)
 ```typescript
 public function getMembers($objectId, $top, $skipToken)
 {
-    return $this->getResponse("get", "/administrativeUnits/" . $objectId . "/members?api-version=beta", SectionUser::class, $top, $skipToken);
+    return $this->getResponse( "administrativeUnits/" . $objectId . "/members", SectionUser::class, $top, $skipToken);
 }
 ```
 Below are some screenshots of the sample app that show the education data.
@@ -443,7 +422,7 @@ Below is a piece of code shows how to get "me" from the Microsoft Graph API.
 ```typescript
 public function getMe()
 {
-    $json = $this->getResponse("get", "/me?api-version=1.5", null, null, null);
+    $json = $this->getResponse( "me", null, null, null);
     $assignedLicenses = array_map(function ($license) {
         return new Model\AssignedLicense($license);
     }, $json["assignedLicenses"]);
@@ -457,7 +436,7 @@ Note that in the AAD Application settings, permissions for each Graph API are co
 
 ## Questions and comments
 
-- If you have any trouble running this sample, please [log an issue](https://github.com/OfficeDev/O365-EDU-PHP-Samples/issues).
+- If you have any trouble running this sample, please [log an issue](https://github.com/OfficeDev/O365-EDU-AspNetMVC-Samples/issues).
 - Questions about GraphAPI development in general should be posted to [Stack Overflow](http://stackoverflow.com/questions/tagged/office-addins). Make sure that your questions or comments are tagged with [microsoftgraph]. 
 
 ## Contributing

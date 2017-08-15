@@ -143,6 +143,8 @@ class AdminController extends Controller
         $o365UserId = $user->o365UserId;
         $tenantId = $this->aadGraphService->getTenantIdByUserId($o365UserId, $this->tokenCacheService->getMSGraphToken($o365UserId));
         $this->adminService->unconsent($tenantId, $this->tokenCacheService->getAADToken($o365UserId));
+        $org = $this->organizationsService->getOrganization($tenantId);
+        $this->userServices->unlinkAllUsers($org->id);
         header('Location: ' . '/admin?consented=false');
         exit();
 
@@ -180,5 +182,13 @@ class AdminController extends Controller
     {
         set_time_limit(1200);
         $this->adminService->enableUsersAccess();
+    }
+
+    public function clearAdalCache()
+    {
+        $this->tokenCacheService->clearUserTokenCache();
+        $message = 'Login cache cleared successfully!';
+        header('Location: ' . '/admin?successMsg=' . $message);
+        exit();
     }
 }
