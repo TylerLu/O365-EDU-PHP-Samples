@@ -68,8 +68,8 @@ Make sure that Laravel 5.4 can run on local machine. Otherwise following [this a
 
 #### Create a new Laravel project.
 
-1. Via Composer Create-Project,
-   open a command prompt and navigate to the location that you want to create the Laravel project. Run the common below. You can rename **BasicSSO** to whatever that make sense.  
+1. Via Composer Create-Project
+   Open command prompt and location to a folder that want to create Laravel project. Run the common below. You can rename **BasicSSO** to whatever that make sense.  
 
    `composer create-project laravel/laravel BasicSSO`
 
@@ -81,8 +81,7 @@ Make sure that Laravel 5.4 can run on local machine. Otherwise following [this a
 
 #### Update source code
 
-1. Rename **server.php** to **index.php**. 
-2. Copy **.htaccess** from **/public** folder to the root folder of **BasicSSO**.  After completion it will like this image below.
+1. Rename **server.php** to **index.php**. Copy **.htaccess** from **/public** folder to the root folder of **BasicSSO**.  After completed it will like image below.
 
    ![proj01](Images/proj01.png)
 
@@ -113,7 +112,7 @@ Make sure that Laravel 5.4 can run on local machine. Otherwise following [this a
 
 ![proj02](Images/proj02.png)
 
-4. Open the **BasicSSO** project with PHPStorm. Create a new file named **LogoutController.php** under **app\Http\Controllers\Auth** folder. Delete all code then copy and paste the following code.
+4. Open the **BasicSSO** project with PHPStorm. Create a new file named **LogoutController.php** under **app\Http\Controllers\Auth** folder. Delete all code and copy the following code to paste.
 
 ```
 <?php
@@ -145,7 +144,7 @@ class LogoutController extends Controller
 }
 ```
 
-5.  Create a new file named **O365AuthController.php** under **app\Http\Controllers** folder. Delete all code then copy and paste the following code.
+5.  Create a new file named **O365AuthController.php** under **app\Http\Controllers** folder. Delete all code and copy the following code to paste.
 
 ```
 <?php
@@ -189,7 +188,7 @@ class O365AuthController extends Controller
 }
 ```
 
-6. Create a new file named **SocializeAuthMiddleware.php** under **app\Http\Middleware** folder. Delete all code then copy and paste the following code.
+6. Create a new file named **SocializeAuthMiddleware.php** under **app\Http\Middleware** folder. Delete all code and copy the following code to paste.
 
 ```
 <?php
@@ -260,7 +259,7 @@ protected $middleware = [
 ];
 ```
 
-8. Create a new file named **O365ExtendSocialite.php** under **app\Providers** folder. Delete all code then copy and paste the following code.
+8. Create a new file named **O365ExtendSocialite.php** under **app\Providers** folder. Delete all code and copy the following code to paste.
 
 ```
 <?php
@@ -282,7 +281,7 @@ class O365ExtendSocialite
 }
 ```
 
-9. Create a new file named **O365Provider.php** under **app\Providers** folder. Delete all code then copy and paste the following code.
+9. Create a new file named **O365Provider.php** under **app\Providers** folder. Delete all code and copy the following code to paste.
 
 ```
 <?php
@@ -350,7 +349,7 @@ class O365Provider extends \SocialiteProviders\Azure\Provider
 
     ` 'Socialize' => 'Laravel\Socialite\Facades\Socialite',`
 
-12. create a new file named **graph.php** under **/config** folder. Delete all code then copy and paste the following code.
+12. create a new file named **graph.php** under **/config** folder. Delete all code and copy the following code to paste.
 
 ```
 <?php
@@ -400,7 +399,7 @@ class Constants
 }
 ```
 
-13. create a new file named **siteConstants.php** under **/config** folder. Delete all code then copy and paste the following code.
+13. create a new file named **siteConstants.php** under **/config** folder. Delete all code and copy the following code to paste.
 
 ```
 <?php
@@ -440,7 +439,7 @@ class UserType
 
 ```
 
-14. Edit config\services.php. Delete all code then copy and paste the following code.
+14. Edit config\services.php. Delete all code and copy the following code to paste.
 
     ```
     <?php
@@ -490,7 +489,7 @@ class UserType
     ];
     ```
 
-15. Edit **resources\views\welcome.blade.php**. Delete all code then copy and paste the following code.
+15. Edit **resources\views\welcome.blade.php**. Delete all code and copy the following code to paste.
 
 ```
 <!doctype html>
@@ -586,7 +585,7 @@ class UserType
 </html>
 ```
 
-15. Update **routes\web.php**. Delete all code then copy and paste the following code.
+15. Update **routes\web.php**. Delete all code and copy the following code to paste.
 
 ```
 <?php
