@@ -54,6 +54,22 @@ class MSGraphService
         return false;
     }
 
+    public function getUserInfo($o365UserId)
+    {
+        $token = $this->getToken();
+        if ($token) {
+            try {
+                $result =  $this->graph->setAccessToken($token)
+                    ->createRequest("get", "/users/$o365UserId")
+                    ->execute();
+                return $result->getBody();
+            } catch (Exception $e) {
+                return null;
+            }
+        }
+        return false;
+    }
+
     /**
      *
      * Get all conversations of a group.
@@ -91,6 +107,28 @@ class MSGraphService
     public function getGroupDriveRoot($groupId)
     {
         return $this->getResponse("get", "/groups/$groupId/drive/root", DriveItem::class);
+    }
+
+    public function  uploadFileToOneDrive($driveId,$itemId,$filePath,$fileName)
+    {
+       $token = $this->getToken();
+       return $this->graph->setAccessToken($token)
+            ->createRequest("PUT", "/drives/".$driveId."/items/".$itemId.":/".$fileName.":/content")
+            ->upload($filePath);
+
+    }
+
+
+
+    public function postJSONToURL($url,$json)
+    {
+
+
+        $token = $this->getToken();
+        return $this->graph->setAccessToken($token)
+            ->createRequest("POST", $url)
+            ->attachBody($json)
+            ->execute();
     }
 
     /**

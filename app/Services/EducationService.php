@@ -9,10 +9,14 @@ namespace App\Services;
 use App\Config\Roles;
 use App\Config\SiteConstants;
 use App\ViewModel\ArrayResult;
+use App\ViewModel\Assignment;
+use App\ViewModel\EducationAssignmentResource;
+use App\ViewModel\ResourcesFolder;
 use App\ViewModel\School;
 use App\ViewModel\Section;
 use App\ViewModel\SectionUser;
 use App\ViewModel\Student;
+use App\ViewModel\Submission;
 use App\ViewModel\Teacher;
 use Illuminate\Support\Facades\Auth;
 use Microsoft\Graph\Connect\Constants;
@@ -52,8 +56,16 @@ class  EducationService
         $assignedLicenses = array_map(function ($license) {
             return new Model\AssignedLicense($license);
         }, $json["assignedLicenses"]);
-        $isStudent = $this->isUserStudent($assignedLicenses);
-        $isTeacher = $this->isUserTeacher($assignedLicenses);
+        $role = (new UserRolesService)->getUserRole($json["id"]);
+        if($role!="Admin")
+        {
+            $isStudent = $json["extension_fe2174665583431c953114ff7268b7b3_Education_ObjectType"]=="Student"?true:false; //$this->isUserStudent($assignedLicenses);
+            $isTeacher =$json["extension_fe2174665583431c953114ff7268b7b3_Education_ObjectType"]=="Teacher"?true:false; //$this->isUserTeacher($assignedLicenses);
+
+        }else{
+            $isStudent=false;
+            $isTeacher=false;
+        }
         $user = new SectionUser();
         if ($isStudent) {
             $user = new Student();
@@ -76,7 +88,7 @@ class  EducationService
      */
     public function getSchools()
     {
-        return $this->getAllPages( "administrativeUnits", School::class);
+        return $this->getAllPages( "education/schools", School::class);
     }
 
     /**
@@ -89,8 +101,9 @@ class  EducationService
      */
     public function getSchool($objectId)
     {
-        return $this->getResponse( "administrativeUnits/" . $objectId , School::class, null, null);
+        return $this->getResponse( "education/schools/" . $objectId , School::class, null, null);
     }
+
 
     /**
      * Get all the sections the current logged in user belongs to.
@@ -101,22 +114,15 @@ class  EducationService
      */
     public function getMySections($loadMembers)
     {
-        $memberOfs = $this->getAllPages( "me/memberOf", Section::class);
-        $sections = [];
-        if (empty($memberOfs)) {
-            return $sections;
-        }
-        foreach ($memberOfs as $memberOf) {
-            if ( $memberOf->educationObjectType === 'Section') {
-                array_push($sections, $memberOf);
-            }
-        }
-        if (!$loadMembers) {
-            return $sections;
+        $memberOfs = $this->getAllPages( "education/me/classes", Section::class);
+
+        if (empty($memberOfs) || !$loadMembers) {
+            return $memberOfs;
         }
 
+
         $sectionsWithMembers = [];
-        foreach ($sections as $section) {
+        foreach ($memberOfs as $section) {
             $sectionWithMembers = $this->getSectionWithMembers($section->id);
             array_push($sectionsWithMembers, $sectionWithMembers);
         }
@@ -132,10 +138,10 @@ class  EducationService
      */
     public function getSectionWithMembers($objectId)
     {
-        return $this->getResponse( 'groups/' . $objectId . '?$expand=members', Section::class, null, null);
+        return $this->getResponse( 'education/classes/' . $objectId . '?$expand=members', Section::class, null, null);
     }
 
-    /**
+     /**
      * Get all the sections the current logged in user belongs to in a school
      *
      * @param string $schoolId The object id of the school
@@ -145,13 +151,10 @@ class  EducationService
     public function getMySectionsOfSchool($schoolId)
     {
         $sections = $this->getMySections(true);
-        $sectionsOfSchool = array_filter($sections, function ($section) use ($schoolId) {
-            return ($section->schoolId === $schoolId);
-        });
-        usort($sectionsOfSchool, function ($a, $b) {
+        usort($sections, function ($a, $b) {
             return strcmp($a->combinedCourseNumber, $b->combinedCourseNumber);
         });
-        return $sectionsOfSchool;
+        return $sections;
     }
 
     /**
@@ -165,23 +168,9 @@ class  EducationService
      */
     public function getSections($schoolId, $top=SiteConstants::DefaultPageSize, $skipToken=null)
     {
-        return $this->getResponse( 'groups?$filter=extension_fe2174665583431c953114ff7268b7b3_Education_ObjectType%20eq%20\'Section\'%20and%20extension_fe2174665583431c953114ff7268b7b3_Education_SyncSource_SchoolId%20eq%20\'' . $schoolId . '\'', Section::class, $top, $skipToken);
+        return $this->getResponse( 'education/schools/' . $schoolId . '/classes', Section::class, $top, $skipToken);
     }
 
-    /**
-     * Get members within a school
-     * Reference URL: https://msdn.microsoft.com/en-us/office/office365/api/school-rest-operations#get-school-members
-     *
-     * @param string $objectId the object id of the school administrative unit in Azure Active Directory
-     * @param int $top The number of items to return in a result set
-     * @param string $skipToken The token used to retrieve the next subset of the requested collection
-     *
-     * @return array A subset of the members within the school
-     */
-    public function getMembers($objectId, $top, $skipToken)
-    {
-        return $this->getResponse( "administrativeUnits/" . $objectId . "/members", SectionUser::class, $top, $skipToken);
-    }
 
     /**
      * Get students within a school
@@ -213,6 +202,151 @@ class  EducationService
         return $this->getResponse( "users?\$filter=extension_fe2174665583431c953114ff7268b7b3_Education_SyncSource_SchoolId eq '$schoolId' and extension_fe2174665583431c953114ff7268b7b3_Education_ObjectType eq 'Teacher'", SectionUser::class, $top, $skipToken);
     }
 
+    public function getAssignments($classId)
+    {
+        return $this->getAllPages( 'education/classes/' . $classId . '/assignments', Assignment::class);
+    }
+
+    public function getAssignmentResources($classId,$assignmentId)
+    {
+        return $this->getAllPages( 'education/classes/' . $classId . '/assignments/'.$assignmentId .'/resources', EducationAssignmentResource::class);
+
+    }
+
+    public function getAssignmentSubmissions($classId,$assignmentId)
+    {
+        return $this->getAllPages( 'education/classes/' . $classId . '/assignments/'.$assignmentId .'/submissions',
+            Submission::class);
+    }
+
+    public function getAssignmentSubmissionsByUser($classId, $assignmentId, $userId)
+    {
+        return $this->getAllPages( 'education/classes/' . $classId . '/assignments/'.$assignmentId .'/submissions?$filter=submittedBy/user/id eq \''.$userId.'\'',
+            EducationAssignmentResource::class);
+
+    }
+    public function getSubmissionResources($classId,$assignmentId,$sectionId)
+    {
+        return $this->getAllPages( 'education/classes/' . $classId . '/assignments/'.$assignmentId .'/submissions/'.$sectionId.'/resources', EducationAssignmentResource::class);
+
+    }
+
+    public function addSubmissionResource($classId,$assignmentId,$submissionId,$fileName,$resourceURL)
+    {
+        $url = "education/classes/".$classId."/assignments/".$assignmentId."/submissions/".$submissionId."/resources";
+        $fileType = $this->getFileType($fileName);
+        $json=array(
+            "resource"=>array(
+                "displayName"=>$fileName,
+                "@odata.type"=>$fileType,
+                "file"=>array("odataid"=>$resourceURL)
+            )
+        );
+        $data = json_encode($json);
+        $this->postJSON($url,$data);
+    }
+
+    public function getAssignment($sectionId, $assignmentId)
+    {
+        return $this->getResponse('education/classes/'.$sectionId.'/assignments/'.$assignmentId,Assignment::class,null,null);
+    }
+
+    public function publishAssignmentAsync($sectionId, $assignmentId)
+    {
+        $url = "education/classes/".$sectionId."/assignments/".$assignmentId."/publish";
+        return $this->getPostResponseWithReturnObject($url,null,Assignment::class);
+    }
+
+    public function getAssignmentResourceFolderURL($sectionId, $assignmentId)
+    {
+        $url = "education/classes/".$sectionId."/assignments/".$assignmentId."/GetResourcesFolderUrl";
+        return $this->getResponse($url,ResourcesFolder::class,null,null);
+    }
+
+    public function addAssignmentResources($sectionId,$assignmentId,$fileName,$resourceURL)
+    {
+       $url = "education/classes/".$sectionId."/assignments/".$assignmentId."/resources";
+        $fileType = $this->getFileType($fileName);
+       $json=array(
+           "resource"=>array(
+               "displayName"=>$fileName,
+               "@odata.type"=>$fileType,
+               "file"=>array("odataid"=>$resourceURL)
+           )
+       );
+       $data = json_encode($json);
+       $this->postJSON($url,$data);
+    }
+
+    public function createAssignment($formDate)
+    {
+        $url = "education/classes/".$formDate['classId']."/assignments";
+        $json = array(
+            "displayName"=>$formDate['name'],
+            "status"=>"draft",
+            "dueDateTime"=>date('Y-m-d\TH:i:s\Z',strtotime($formDate['duedate']." " . $formDate['duetime'])),
+            "allowStudentsToAddResourcesToSubmission"=>true,
+            "assignTo"=>array(
+                "@odata.type"=>"#microsoft.graph.educationAssignmentClassRecipient"
+            )
+        );
+        $data = json_encode($json);
+        $result = $this->postJSON($url,$data);
+        $json  = json_decode($result->getBody(), true);
+        return $json;
+
+    }
+
+    /**
+     * Add a member to a class.
+     * Reference URL: https://developer.microsoft.com/en-us/graph/docs/api-reference/v1.0/api/group_post_members
+     * @param $classId
+     * @param $teacherId
+     */
+    public function addGroupMember($classId,$teacherId)
+    {
+        $data['@odata.id'] =Constants::MSGraph. '/v1.0/directoryObjects/'.$teacherId ;
+        return $this->getPostResponse( "groups/".$classId."/members/\$ref", $data);
+
+    }
+
+    /**
+     * Add a member to the owner a class.
+     * Reference URL: https://developer.microsoft.com/en-us/graph/docs/api-reference/v1.0/api/group_post_owners
+     * @param $classId
+     * @param $teacherId
+     */
+    public function addGroupOwner($classId,$teacherId)
+    {
+        $data['@odata.id'] =Constants::MSGraph . '/v1.0/users/'.$teacherId ;
+        return $this->getPostResponse( "groups/".$classId."/owners/\$ref", $data);
+    }
+
+    private function getFileType($fileName)
+    {
+        $defaultFileType = "#microsoft.graph.educationFileResource";
+        $ext ="";
+        if(strpos($fileName,".")>0)
+        {
+            $array = explode(".",$fileName);
+            $ext = $array[1];
+        }
+        switch ($ext)
+        {
+            case "docx":
+                $defaultFileType = "#microsoft.graph.educationWordResource";
+                break;
+            case "xlsx":
+                $defaultFileType = "#microsoft.graph.educationExcelResource";
+                break;
+            default:
+                $defaultFileType = "#microsoft.graph.educationFileResource"; //"#microsoft.graph.educationFileResource";
+                break;
+        }
+
+        return $defaultFileType;
+
+    }
     private function isUserStudent($licenses)
     {
         return AADGraphService::isUserStudent($licenses);
@@ -221,6 +355,47 @@ class  EducationService
     private function isUserTeacher($licenses)
     {
         return AADGraphService::isUserTeacher($licenses);
+    }
+
+    private function isUserAdmin($licenses)
+    {
+        return AADGraphService::ad($licenses);
+    }
+
+    private function getPostResponse($endpoint,$data)
+    {
+        $token = $this->getToken();
+        if ($token) {
+            $url = Constants::MSGraph . '/' . Constants::MSGraph_VERSION . '/' . $endpoint;
+            $result = HttpUtils::postHttpResponseWithData( $token, $url,$data);
+            return $result;
+        }
+        return null;
+    }
+
+    private function postJSON($endpoint,$data)
+    {
+        $token = $this->getToken();
+        if ($token) {
+            $url = Constants::MSGraph . '/' . Constants::MSGraph_VERSION . '/' . $endpoint;
+            $result = HttpUtils::postJSON( $token, $url,$data);
+            return $result;
+        }
+        return null;
+    }
+
+
+    private function getPostResponseWithReturnObject($endpoint,$data,$returnType)
+    {
+        $result = $this->getPostResponse($endpoint,$data);
+        $json = json_decode($result->getBody(), true);
+        if ($returnType) {
+            $isArray = (array_key_exists('value', $json) && is_array($json['value']));
+            $retObj = $isArray ? new ArrayResult($returnType) : new $returnType();
+            $retObj->parse($json);
+            return $retObj;
+        }
+        return $json;
     }
 
     /**
