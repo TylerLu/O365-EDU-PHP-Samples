@@ -17,6 +17,12 @@ $(document).ready(function () {
         tabname = $(this).find("a").attr("href");
         showDemoHelper(tabname);
     });
+    $('.schoolteachers .close').click(function (e) {
+        $(this).parent().hide();
+    });
+    $('#addateacher').click(function (e) {
+        $('.schoolteachers').show();
+    });
 });
 
 function iniTiles(){
@@ -50,7 +56,7 @@ function iniControl() {
 
     var tabToActivate = $.urlParam("tab");
     if (tabToActivate) {
-        $('.nav-tabs li:eq(' + tabToActivate + ') a').tab('show');
+        $('.nav-tabs a[href="#' + tabToActivate + '"]').tab('show');
     }
 
     function exitEdit() {
@@ -67,7 +73,7 @@ function formatDateTime() {
         var $e = $(e);
         var dateStr = $e.text();
         if (dateStr) {
-            $e.text(moment.utc(dateStr).local().format('MMMM D YYYY'));
+            $e.text(moment.utc(dateStr).local().format('MMMM DD YYYY'));
         }
     });
     $("#studoc tbody .tr-content td:nth-child(4)").each(function (i, e) {
@@ -75,6 +81,13 @@ function formatDateTime() {
         var dateStr = $e.text();
         if (dateStr) {
             $e.text(moment.utc(dateStr).local().format('MM/DD/YYYY hh: mm: ss A'));
+        }
+    });
+    $(".assignmentdate").each(function (i, e) {
+        var $e = $(e);
+        var dateStr =$.trim( $e.text());
+        if (dateStr) {
+            $e.text(moment.utc(dateStr).local().format('MM/DD/YYYY'));
         }
     });
 }

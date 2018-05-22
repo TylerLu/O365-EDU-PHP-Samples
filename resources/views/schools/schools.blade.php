@@ -13,25 +13,14 @@
             <div class="col-md-6">
                 <div class="a-heading schoolname">ALL SCHOOLS</div>
             </div>
-            @if($me)
-                <div class="col-md-6 schooltiles">
-                    @if($me->educationObjectType === "Student" or $me->educationObjectType === "Teacher")
-                        <div class="infocontainer">
-                            <div class="infoheader">
-                                <span>{{$me->educationObjectType}}</span> Id
-                            </div>
-                            <div class="infobody">{{$me->getUserId()}}</div>
-                        </div>
-                    @endif
-                </div>
-            @endif
+
             <div class="container myschool">
                 <div class="schoolenrolled">Current school(s) enrolled</div>
                 <div class="greenicon"></div>
             </div>
             <div style="clear:both;"></div>
             <table class="table  table-green table-schools">
-                @if($schools)
+
                     <tbody>
                     <tr class="table-green-header">
                         <th class="tdleft">School Name</th>
@@ -40,7 +29,8 @@
                         <th>Address</th>
                         <th></th>
                     </tr>
-                    @if(empty($schools))
+                   
+                    @if(empty($schools) || count($schools)==0 )
                         <tr>
                             <td colspan="5">
                                 <div class="nodata"> There is no data available for this page at this time.</div>
@@ -64,7 +54,7 @@
                                     @if($school->city)
                                         <br/>
                                     @endif
-                                    {{$school->getCompoundAddress() }}
+                                    {!! $school->getCompoundAddress() !!}
                                     @if(!$school->address && !$school->city)
                                         -
                                     @endif
@@ -72,13 +62,12 @@
                             </td>
                             <td>
                                 <a class="btnlink" target="_self" href="/classes/{{$school->id}}">Classes</a>
-                                <a class="btnlink" target="_self"
-                                   href="/users/{{$school->id}}">Teachers/students</a>
+
                             </td>
                         </tr>
                     @endforeach
                     </tbody>
-                @endif
+
             </table>
         </div>
 

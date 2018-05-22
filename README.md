@@ -31,6 +31,7 @@ The sample demonstrates:
 - Getting schools, sections, teachers, and students from Office 365 Education:
 
   - [Office 365 Schools REST API reference](https://msdn.microsoft.com/office/office365/api/school-rest-operations)
+  - A [Differential Query](https://msdn.microsoft.com/en-us/library/azure/ad/graph/howto/azure-ad-graph-api-differential-query) is used to sync data that is cached in a local database by the SyncData Web Job.
 
 The sample is implemented with the PHP language and the [Laravel](https://laravel.com/) framework.
 
@@ -40,7 +41,7 @@ The sample is implemented with the PHP language and the [Laravel](https://larave
 
 ## Prerequisites
 
-**Deploying and running this sample requires**:
+### **Deploying and running this sample requires**:
 
 - An Azure subscription with permissions to register a new application, and deploy the web app.
 
@@ -54,6 +55,65 @@ The sample is implemented with the PHP language and the [Laravel](https://larave
   - [Composer](https://getcomposer.org/download/)
   - [Git](https://git-scm.com/download/win)
   - Familiarity with PHP and [Laravel](https://laravel.com/).
+
+## **Generate a self-signed certificate**
+
+A self-signed certificate is required by the SyncData WebJob. For preview, you may skip the steps below and use the default certificate we provided:
+
+- Certificate file: `/App_Data/jobs/triggered/SyncData/app_only_cert.pfx`
+- Password: `J48W23RQeZv85vj`
+- Key credential: `/App_Data/jobs/triggered/SyncData/key_credential.txt`
+
+For production, you should you own certifcate:
+
+**Generate certificate with PowerShell**
+
+This file will be used in web job.
+
+Run PowerShell **as administrator**, then execute the commands below:
+
+```powershell
+$cert = New-SelfSignedCertificate -Type Custom -KeyExportPolicy Exportable -KeySpec Signature -Subject "CN=Edu App-only Cert" -NotAfter (Get-Date).AddYears(20) -CertStoreLocation "cert:\CurrentUser\My" -KeyLength 2048
+```
+
+> Note: please keep the PowerShell window open until you finish the steps below.
+
+**Get keyCredential**
+
+Execute the commands below to get keyCredential:
+
+> Note: Feel free to change the file path at the end of the command.
+
+```powershell
+$keyCredential = @{}
+$keyCredential.customKeyIdentifier = [System.Convert]::ToBase64String($cert.GetCertHash())
+$keyCredential.keyId = [System.Guid]::NewGuid().ToString()
+$keyCredential.type = "AsymmetricX509Cert"
+$keyCredential.usage = "Verify"
+$keyCredential.value = [System.Convert]::ToBase64String($cert.GetRawCertData())
+$keyCredential | ConvertTo-Json > c:\keyCredential.txt
+```
+
+The keyCredential is in the generated file, and will be used to create App Registrations in AAD.
+
+![cert-key-credential](/Images/cert-key-credential.png)
+
+### Export the Certificate and Convert to Base64 String
+
+You will be prompted to input a password to protect the certificate. Please copy aside the password. It will be used as the value of the **Certificate Pfx Password** parameter of the ARM Template
+
+The base64 string of the certificate is in the generated text file, and will be used as the value of the **Certificate Pfx Base64** parameter of the ARM Template.
+
+![cert-base64](/Images/cert-base64.png)
+
+Execute the commands below to export the certificate.
+
+```
+$password = Read-Host -Prompt "Enter password" -AsSecureString
+Export-PfxCertificate -Cert $cert -Password $password -FilePath c:\app_only_cert.pfx
+```
+
+
 
 ## Register the application in Azure Active Directory
 
@@ -93,18 +153,38 @@ The sample is implemented with the PHP language and the [Laravel](https://larave
 
    - Click **Required permissions**. Add the following permissions:
 
-     | API                            | Application Permissions | Delegated Permissions                    |
-     | ------------------------------ | ----------------------- | ---------------------------------------- |
-     | Microsoft Graph                | Read directory data     | Read all users' full profiles<br>Read directory data<br>Read directory data<br>Access directory as the signed in user<br>Sign users in |
-     | Windows Azure Active Directory |                         | Sign in and read user profile<br>Read and write directory data |
+     | API                            | Application Permissions       | Delegated Permissions                                        |
+     | ------------------------------ | ----------------------------- | ------------------------------------------------------------ |
+     | Microsoft Graph                | Read all users' full profiles<br>Read the organization's roster | Read directory data<br>Access directory as the signed in user<br>Sign users in<br> Have full access to all files user can access<br> Have full access to user files<br> Read and write users' class assignments and their grades<br>Read users' view of the roster <br>Read all groups |
+     | Windows Azure Active Directory |                               | Sign in and read user profile<br>Read and write directory data |
 
      ![](/Images/aad-create-app-06.png)
+
+     
+
+     
 
    - Click **Keys**, then add a new key:
 
      ![](Images/aad-create-app-07.png)
 
      Click **Save**, then copy aside the **VALUE** of the key. 
+
+8. Click **Manifest**.
+
+     ![](Images/aad-create-app-08.png)
+
+     
+
+     Copy the keyCredential (all the text) from `key_credential.txt` file.
+
+     Insert the keyCredential into the square brackets of the **keyCredentials** node.
+
+     ![](Images/aad-create-app-09.png)
+
+     Click **Save**.
+
+     > Note: this step configures the certification used by a Web Job. Check **Application Authentication Flow** section for more details.
 
    Close the Settings window.
 
@@ -254,7 +334,7 @@ We utilized the built-in [authentication](https://laravel.com/docs/5.4/authentic
 
 **Data Access**
 
-[Eloquent](https://laravel.com/docs/5.4/eloquent) is used to access data stored in the SQLite database.
+[Eloquent](https://laravel.com/docs/5.4/eloquent) is used to access data stored in the MySQL database.
 
 The tables used in this demo:
 
@@ -300,7 +380,7 @@ Below are the main services used by the sample:
 | ----------------- | ---------------------------------------- |
 | AADGraphService   | Contains methods used to access AAD Graph REST APIs. |
 | MSGraphService    | Contains methods used to access MS Graph REST APIs. |
-| EducationService  | Contains methods like get user information,  get schools/classes/users, get/update seating arrangements. |
+| EducationService  | Contains methods like get user information,  get schools/classes/users/assignments, get/update seating arrangements. |
 | CookieService     | Contains methods that used to manage cookies. |
 | TokenCacheService | Contains methods used to get and update token cache from the database. |
 | UserService       | Contains methods used to manipulate users in the database. |
@@ -331,14 +411,14 @@ In this sample, the `App\Services\EducationService` class encapsulates the Offic
 ~~~typescript
 public function getSchools()
 {
-   return $this->getAllPages( "administrativeUnits", School::class);
+ return $this->getAllPages( "education/schools", School::class);
 }
 ~~~
 
 ~~~typescript
 public function getSchool($objectId)
 {
-    return $this->getResponse( "administrativeUnits/" . $objectId , School::class, null, null);
+    return $this->getResponse( "education/schools/" . $objectId , School::class, null, null);
 }
 ~~~
 
@@ -347,7 +427,7 @@ public function getSchool($objectId)
 ~~~typescript
 public function getSections($schoolId, $top, $skipToken)
 {
-           return $this->getResponse( 'groups?$filter=extension_fe2174665583431c953114ff7268b7b3_Education_ObjectType%20eq%20\'Section\'%20and%20extension_fe2174665583431c953114ff7268b7b3_Education_SyncSource_SchoolId%20eq%20\'' . $schoolId . '\'', Section::class, $top, $skipToken);
+    return $this->getResponse( 'education/schools/' . $schoolId . '/classes', Section::class, $top, $skipToken);
 
 }
 ~~~
@@ -355,22 +435,20 @@ public function getSections($schoolId, $top, $skipToken)
 ```typescript
 public function getSectionWithMembers($objectId)
 {
-    return $this->getResponse( 'groups/' . $objectId . '?$expand=members', Section::class, null, null);
+    return $this->getResponse( 'education/classes/' . $objectId . '?$expand=members', Section::class, null, null);
 }
 ```
-**Get users**
+**Get assignments**
 
 ```typescript
-public function getMembers($objectId, $top, $skipToken)
-{
-    return $this->getResponse( "administrativeUnits/" . $objectId . "/members", SectionUser::class, $top, $skipToken);
-}
+   public function getAssignments($classId)
+    {
+        return $this->getAllPages( 'education/classes/' . $classId . '/assignments', Assignment::class);
+    }
 ```
 Below are some screenshots of the sample app that show the education data.
 
 ![](Images/edu-schools.png)
-
-![](Images/edu-users.png)
 
 ![](Images/edu-classes.png)
 
@@ -401,6 +479,18 @@ As mentioned earlier, the web app is a multi-tenant app which uses some applicat
 This flow is implemented in the AdminController. 
 
 ![](Images/auth-flow-admin-login.png)
+
+**Application Authentication Flow**
+
+This flow in implemented in the SyncData WebJob.
+
+![](Images/auth-flow-app-login.png)
+
+An X509 certificate is used. For more details, please check the following links:
+
+- [Daemon or Server Application to Web API](https://docs.microsoft.com/en-us/azure/active-directory/active-directory-authentication-scenarios#daemon-or-server-application-to-web-api)
+- [Authenticating to Azure AD in daemon apps with certificates](https://azure.microsoft.com/en-us/resources/samples/active-directory-dotnet-daemon-certificate-credential/)
+- [Build service and daemon apps in Office 365](https://msdn.microsoft.com/en-us/office/office365/howto/building-service-apps-in-office-365)
 
 ### Two Kinds of Graph APIs
 
@@ -433,6 +523,32 @@ public function getMe()
 Note that in the AAD Application settings, permissions for each Graph API are configured separately:
 
 ![](Images/aad-create-app-06.png) 
+
+### Differential Query
+
+A [differential query](https://msdn.microsoft.com/en-us/Library/Azure/Ad/Graph/howto/azure-ad-graph-api-differential-query) request returns all changes made to specified entities during the time between two consecutive requests. For example, if you make a differential query request an hour after the previous differential query request, only the changes made during that hour will be returned. This functionality is especially useful when synchronizing tenant directory data with an application’s data store.
+
+The related code is in the following folder of the project:
+
+- **/App_Data**: contains classes that are used to demonstrate how to sync users.
+
+In run.php, we demonstrate how to use the **DifferentialQuery** to send differential query and get differential result.
+
+```php
+$users = $msGraphHelper->queryUsers($dataSyncRecord->deltaLink,$org->tenantId,$clientId);
+```
+
+And how to update (or delete) users in local database with the delta result:
+
+```php
+    foreach ($users as $user) {
+        $dbHelper->updateUser($user);
+    }
+```
+
+Below is the log generated by the SyncData WebJob:
+
+![](Images/sync-data-web-job-log.png) 
 
 ## Questions and comments
 

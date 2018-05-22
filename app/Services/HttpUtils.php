@@ -28,6 +28,34 @@ class HttpUtils
         return self::getResponse('post',$token,$url);
     }
 
+    public static function  postHttpResponseWithData($token, $url,$data)
+    {
+        $client = new Client();
+        $authHeader = [];
+        if ($token) {
+
+            $authHeader = HttpUtils::getAuthHeader($token);
+            $authHeader['json'] =$data;
+            return $client->request("POST",$url,$authHeader);
+        }
+        return null;
+    }
+
+    public static function  postJSON($token, $url,$data)
+    {
+        $client = new Client();
+        $authHeader = [];
+        if ($token) {
+
+            $authHeader = HttpUtils::getAuthHeaderForJSON($token);
+            $authHeader["headers"]["Content-Length"]=strlen($data);
+            $authHeader['body'] =$data;
+            return $client->request("POST",$url,$authHeader);
+        }
+        return null;
+    }
+
+
     public static function getHttpResponseJson($token, $url)
     {
         $result = self::getHttpResponse($token,$url)->getBody();
@@ -63,6 +91,16 @@ class HttpUtils
         return [
             'headers' => [
                 'Content-Type' => 'application/json;odata.metadata=minimal;odata.streaming=true',
+                'Authorization' => 'Bearer ' . $token
+            ]
+        ];
+    }
+
+    public static function getAuthHeaderForJSON($token)
+    {
+        return [
+            'headers' => [
+                'Content-Type' => 'application/json',
                 'Authorization' => 'Bearer ' . $token
             ]
         ];
