@@ -11,7 +11,6 @@ class DBHelper {
     public function __construct() {
     }
 
-
     public function getOrganizations()
     {
         $orgs = SyncData\Organization::where('isAdminConsented', 1)->get();
@@ -22,7 +21,7 @@ class DBHelper {
        return $orgs;
     }
 
-    public function getOrCreateDataSyncRecord($org )
+    public function getOrCreateDataSyncRecord($org )    
     {
         error_log("Starting to sync users for the ".$org->name." organization.");
 
@@ -32,10 +31,20 @@ class DBHelper {
         {
             error_log('First time executing differential query; all items will return.');
             $url  = 'https://graph.microsoft.com/v1.0/'.$this->usersQuery.'/delta?$select=jobTitle,department,mobilePhone';
-
             $dataSyncRecord = SyncData\DataSyncRecord::create(['tenantId' => $org->tenantId, 'query'=>$this->usersQuery,'deltaLink'=>$url]);
+            $dataSyncRecord->DeltaLink = $url;
         }
         return $dataSyncRecord;
+    }
+    
+    public function updateDatasyncRecorderDeltaLink($org, $deltaLink )
+    {       
+        $dataSyncRecord =  SyncData\DataSyncRecord::where("TenantId",$org->tenantId)->first();
+        if(isset($dataSyncRecord))
+        {
+            $dataSyncRecord->deltaLink = $deltaLink;
+            $dataSyncRecord->save();
+        }
     }
 
     public function updateUser($user)
@@ -60,6 +69,5 @@ class DBHelper {
            }
         }
         return;
-
     }
 }

@@ -4,7 +4,6 @@
  *  See LICENSE in the project root for license information.
  */
 
-
 class MSGraphHelper
 {
     public  $certPath = null;
@@ -14,13 +13,13 @@ class MSGraphHelper
     {
         $this->certPath = getenv("Cert_Path");;
         $this->certPassword = getenv("Cert_password");
-
     }
 
-    public  function queryUsers($url,$tenantId,$clientId)
+    public function queryUsers($url,$tenantId,$clientId)
     {
         $accessToken  =$this->getAccessToken($tenantId,$clientId);
         $nextLink = $url;
+        $deltaLink='';
         $users = array();
 
         $request_headers   = array();
@@ -83,14 +82,17 @@ class MSGraphHelper
             }
             else
             {
+                if(isset($json_a["@odata.deltaLink"])){
+                    $deltaLink = $json_a["@odata.deltaLink"];    
+                } 
                 break;
             }
         }
         error_log("Get  ".count($users)." users.");
-        return $users;
+        return array($users,$deltaLink);
     }
 
-    public   function getAccessToken($tenantId,$clientId)
+    public function getAccessToken($tenantId,$clientId)
     {
         $jwt = $this->getJWT($tenantId,$clientId);
 
